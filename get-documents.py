@@ -13,15 +13,29 @@ END_DATE   = datetime.datetime(2025, 12, 31, 23, 59, 59)
 def get_custom_filename(folder: str, date_str: str) -> str:
     """
     파일명 형식: Active-Applications-001-01-09-2025.xlsx
-    같은 날짜에 파일이 있으면 002, 003 순으로 번호 증가
+    폴더 내 모든 파일 중 가장 큰 번호를 찾아서 +1
+    같은 날짜든 다른 날짜든 상관없이 계속 증가
     """
-    counter = 1
-    while True:
-        filename = f"Active-Applications-{counter:03d}-{date_str}.xlsx"
-        full_path = os.path.join(folder, filename)
-        if not os.path.exists(full_path):
-            return filename
-        counter += 1
+    # 폴더 내 모든 Active-Applications 파일의 번호를 찾기
+    max_counter = 0
+    try:
+        for existing_file in os.listdir(folder):
+            if existing_file.startswith("Active-Applications-") and existing_file.endswith(".xlsx"):
+                # Active-Applications-001-01-09-2025.xlsx에서 001 추출
+                parts = existing_file.split("-")
+                if len(parts) >= 3:
+                    try:
+                        counter = int(parts[2])  # 001, 002, 003...
+                        max_counter = max(max_counter, counter)
+                    except ValueError:
+                        continue
+    except Exception:
+        pass
+    
+    # 다음 번호 사용
+    next_counter = max_counter + 1
+    filename = f"Active-Applications-{next_counter:03d}-{date_str}.xlsx"
+    return filename
 
 
 def find_folders_recursive(folder, keywords, found=None):
