@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore", message="Workbook contains no default style*")
 
 def process_reports(folder_path):
     # 경로 설정
-    # 조나단님이 말씀하신 합쳐질 마스터 파일 이름
+    # 합쳐질 마스터 파일 이름
     master_file_name = "Master_Applications_Archive.xlsx" 
     # 정보를 채워넣어야 할 타겟 파일 (예: LITNUM 결과표 등)
     assessment_file_name = "assessment_data.xlsx"
@@ -18,7 +18,7 @@ def process_reports(folder_path):
 
     print(f"📂 작업 폴더: {folder_path}")
 
-    # --- STEP 1. 마스터 아카이브 만들기 (84개 파일 병합) ---
+    # --- STEP 1. 마스터 아카이브 만들기 (Active-Applications 파일 병합) ---
     search_pattern = os.path.join(folder_path, "Active-Applications*.xlsx")
     app_files = glob.glob(search_pattern)
     
