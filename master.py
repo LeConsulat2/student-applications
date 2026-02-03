@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore", message="Workbook contains no default style*")
 def process_reports(folder_path):
     # 경로 설정
     # 합쳐질 마스터 파일 이름
-    master_file_name = "Master_Applications_Archive.xlsx" 
+    master_file_name = "Active Application Details.xlsx"
     # 정보를 채워넣어야 할 타겟 파일 (예: LITNUM 결과표 등)
     assessment_file_name = "assessment_data.xlsx"
     
@@ -19,7 +19,7 @@ def process_reports(folder_path):
     print(f"📂 작업 폴더: {folder_path}")
 
     # --- STEP 1. 마스터 아카이브 만들기 (Active-Applications 파일 병합) ---
-    search_pattern = os.path.join(folder_path, "Active-Applications*.xlsx")
+    search_pattern = os.path.join(folder_path, "*Active-Applications*.xlsx")
     app_files = glob.glob(search_pattern)
     
     if not app_files:
@@ -50,7 +50,7 @@ def process_reports(folder_path):
                                    master_archive['Prefered Last Name'].fillna('')).str.lower().str.strip()
 
     # 마스터 파일 우선 저장
-    master_archive.to_excel(master_output_path, index=False)
+    master_archive.to_excel(master_output_path, index=False, sheet_name="Active Applications")
     print(f"✅ [1단계 완료] 마스터 아카이브 생성됨: {master_file_name} (총 {len(master_archive)}건)")
 
     # --- STEP 2. 평가 데이터(Assessment Data) 복구 ---
