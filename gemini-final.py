@@ -7,7 +7,7 @@ SAVE_FOLDER = r"C:\Users\wooin\Documents\student-applications\files"
 TARGET_SUBJECT = "NSN Report"
 
 START_DATE = datetime.datetime(2025, 9, 1)
-END_DATE   = datetime.datetime(2026, 2, 4, 23, 59, 59)
+END_DATE   = datetime.datetime(2026, 2, 9, 23, 59, 59)
 # =================================================
 
 def get_custom_filename(folder: str, date_obj: datetime.datetime) -> str:

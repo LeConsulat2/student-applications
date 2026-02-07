@@ -20,35 +20,72 @@ if not USERNAME or not PASSWORD:
 
 def main():
     print("Launching browser...")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-    driver.maximize_window()
-    wait = WebDriverWait(driver, 15) # Increased wait time slightly
+    
+    # 1. Setup Chrome Options to prevent random crashes
+    options = webdriver.ChromeOptions()
+    options.add_argument("--start-maximized")
+    options.add_argument("--disable-blink-features=AutomationControlled") 
+    
+    # Keep browser open if script crashes (helps debugging)
+    options.add_experimental_option("detach", True)
+
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    wait = WebDriverWait(driver, 20) # Increased wait to 20s
 
     try:
         # --- LOGIN ---
         print("Navigating to login page...")
         driver.get("https://assess.literacyandnumeracyforadults.com/Login.aspx")
 
-        print("Logging in...")
-        # Generic locator for username (often 'ctl00_MainContent_txtUsername' but varies)
-        user_field = wait.until(EC.presence_of_element_located((By.XPATH, "//input[contains(@name, 'sername') or contains(@id, 'sername')]")))
+        # 1. CLICK THE ESAA BUTTON
+        print("Clicking Education Sector Login...")
+        esaa_button = wait.until(EC.element_to_be_clickable((By.ID, "ctl00_cphLoginContent_lnkEsaaLogin")))
+        esaa_button.click()
+
+        # 2. HANDLE THE EDUCATION SECTOR PAGE
+        print("Waiting for Education Sector page...")
+        time.sleep(3) # Let the redirect happen safely
+
+        # --- FIX: Check for "View in English" button ---
+        # The page might load in Māori. If we see "View in English", we click it.
+        try:
+            english_btn = driver.find_elements(By.XPATH, "//button[contains(text(), 'View in English')] | //a[contains(text(), 'View in English')]")
+            if english_btn:
+                print("Detected Māori interface. Switching to English...")
+                english_btn[0].click()
+                time.sleep(2) # Wait for language reload
+        except Exception:
+            print("Language switch failed or not needed. Continuing...")
+
+        # 3. ENTER CREDENTIALS
+        print("Entering credentials...")
+        
+        # We use generic input types because IDs might change, but the order (User -> Pass) is stable
+        # Find the first text input (Username)
+        user_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='text'], input[type='email']")))
         user_field.clear()
         user_field.send_keys(USERNAME)
-        
-        # Human-like pause
-        time.sleep(random.uniform(0.5, 1.5))
 
-        pass_field = driver.find_element(By.XPATH, "//input[@type='password']")
+        # Find the password field
+        pass_field = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
         pass_field.clear()
         pass_field.send_keys(PASSWORD)
 
-        # Click Login
-        login_btn = driver.find_element(By.XPATH, "//input[@type='submit'] | //button[contains(text(), 'Log')]")
+        time.sleep(1)
+
+        # Click the Login Button (Looking for type='submit' or the specific class)
+        # This works for both "Login" (English) and "Takiuru" (Māori)
+        login_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit'], input[type='submit']")
         login_btn.click()
 
         # --- NAVIGATE TO ASSESSMENTS ---
-        print("Login successful. Going to Assessments...")
+        print("Login clicked. Waiting for return to dashboard...")
+        
+        # Wait for the URL to return to the main site OR 'Assessments' link to appear
+        wait.until(EC.url_contains("assess.literacyandnumeracyforadults.com"))
         wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, "Assessments")))
+        
+        print("Login successful. Going to Assessments...")
         driver.get("https://assess.literacyandnumeracyforadults.com/ViewAssessments.aspx")
 
         # --- SELECTION LOOP ---
