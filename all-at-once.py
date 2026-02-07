@@ -117,7 +117,7 @@ def step_1_download_emails():
 
 def step_2_process_excel_files():
     print("\n" + "=" * 60)
-    print("--- [STEP 2] CLEANING & MERGING DATA ---")
+    print("--- [STEP 2] CLEANING & MERGING EXCEL FILES (SOPHISTICATED MODE) ---")
     print("=" * 60)
     
     master_path = os.path.join(OUTPUT_FOLDER, MASTER_FILENAME)
@@ -125,7 +125,7 @@ def step_2_process_excel_files():
     files = glob.glob(search_pattern)
     
     if not files:
-        print("❌ No files found to process.")
+        print("❌ No downloaded files found to process.")
         return
 
     print(f"ℹ️ Processing {len(files)} raw files...\n")
@@ -133,46 +133,59 @@ def step_2_process_excel_files():
     df_list = []
     for f in files:
         try:
-            # Load and Clean
+            # 1. Load data starting from row 3 (header=2)
             df = pd.read_excel(f, header=2)
-            df.columns = df.columns.str.strip()
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-            df.dropna(how='all', axis=1, inplace=True)
-            df.dropna(how='all', axis=0, inplace=True)
             
+            # 2. STRIP WHITESPACE from headers
+            df.columns = df.columns.str.strip()
+            
+            # 3. PURGE "Unnamed" COLUMNS (The Ghost Column Fix)
+            # This looks for columns starting with "Unnamed" and drops them
+            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+
+            # 4. REMOVE EMPTY DATA (The Void Fix)
+            # Drop rows and columns that are completely empty
+            #df.dropna(how='all', axis=1, inplace=True) ONLY NEED TO DROP ROWS THAT ARE COMPLETELY EMPTY
+            df.dropna(how='all', axis=0, inplace=True)
+
             if not df.empty:
-                # Remove header repetition inside data
+                # 5. FILTER DISCLAIMER TEXT (The Junk Row Fix)
+                # We convert the first column to string and check for the specific junk phrase
                 mask = df.iloc[:, 0].astype(str).str.contains("This page provides", na=False)
+                # We keep only the rows where the mask is FALSE (~)
                 df = df[~mask]
-                df_list.append(df)
-                
-            print(f"   ✅ Merged: {os.path.basename(f)}")
+
+            df_list.append(df)
+            print(f"   ✅ Cleaned & Loaded: {os.path.basename(f)}")
         except Exception as e:
-            print(f"   ⚠️ Error reading {os.path.basename(f)}: {e}")
+            print(f"   ⚠️ Error: {os.path.basename(f)}: {e}")
 
     if df_list:
+        # Concatenate
         master_df = pd.concat(df_list, ignore_index=True)
         
-        # Remove duplicates based on App Number
+        # Deduplicate based on Application Number
         if 'Adm Appl Nbr' in master_df.columns:
-            master_df.drop_duplicates(subset=['Adm Appl Nbr'], keep='last', inplace=True)
+            master_df = master_df.drop_duplicates(subset=['Adm Appl Nbr'], keep='last')
         
-        # Create Full Name
+        # Create Full Name (Sophisticated string handling)
         if 'Prefered First Name' in master_df.columns and 'Prefered Last Name' in master_df.columns:
-            master_df['Full_Name'] = (master_df['Prefered First Name'].fillna('') + " " + 
-                                      master_df['Prefered Last Name'].fillna('')).str.lower().str.strip()
+            master_df['Full_Name'] = (
+                master_df['Prefered First Name'].fillna('') + " " + 
+                master_df['Prefered Last Name'].fillna('')
+            ).str.lower().str.strip()
 
+        # Save
         master_df.to_excel(master_path, index=False, sheet_name="Active Applications")
-        print(f"\n✅ SUCCESS! Master File Created: {master_path}")
-        print(f"   📊 Total Unique Rows: {len(master_df)}")
+        print(f"\n✅ Master File Created: {master_path}")
+        print(f"   📊 Total Clean Rows: {len(master_df)}")
         
-        # Ask to open
         try:
             os.startfile(master_path)
         except:
             pass
     else:
-        print("\n❌ No valid data extracted.")
+        print("\n❌ No valid data to merge.")
 
 # ================= MAIN EXECUTION =================
 
