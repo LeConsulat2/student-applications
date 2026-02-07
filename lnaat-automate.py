@@ -15,22 +15,17 @@ load_dotenv()
 USERNAME = os.getenv("LNA_USERNAME")
 PASSWORD = os.getenv("LNA_PASSWORD")
 
-# How many pages do you want to scan?
+# Set this to 9 or 10 based on your screenshot
 MAX_PAGES_TO_SCAN = 10 
 
 if not USERNAME or not PASSWORD:
     print("Error: Username or Password not found in .env file.")
     exit()
 
-def gentle_scroll_down(driver):
-    """Scrolls down the page in small steps to mimic a human."""
-    total_height = driver.execute_script("return document.body.scrollHeight")
-    # Scroll in chunks of 300 pixels
-    for i in range(0, total_height, 300):
-        driver.execute_script(f"window.scrollTo(0, {i});")
-        time.sleep(0.1)
-    # Ensure we are at the very bottom
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+def gentle_scroll_to_element(driver, element):
+    """Scrolls the element into view so we can see it."""
+    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+    time.sleep(1)
 
 def main():
     print("Launching browser...")
@@ -45,16 +40,16 @@ def main():
 
     try:
         # ==========================================
-        # PART 1: LOGIN & ROLE SELECTION
+        # PART 1: LOGIN & ROLE
         # ==========================================
         print("--- PART 1: LOGIN ---")
         driver.get("https://assess.literacyandnumeracyforadults.com/Login.aspx")
 
-        # 1. Click Education Sector Login
+        # 1. Login Button
         wait.until(EC.element_to_be_clickable((By.ID, "ctl00_cphLoginContent_lnkEsaaLogin"))).click()
         time.sleep(3) 
 
-        # 2. Handle Language (English)
+        # 2. Language Check
         try:
             english_btn = driver.find_elements(By.XPATH, "//button[contains(text(), 'View in English')] | //a[contains(text(), 'View in English')]")
             if english_btn:
@@ -63,7 +58,7 @@ def main():
         except Exception:
             pass
 
-        # 3. Enter Credentials
+        # 3. Credentials
         print("Entering credentials...")
         user_field = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='text'], input[type='email']")))
         user_field.click()
@@ -81,12 +76,9 @@ def main():
             time.sleep(0.05)
         
         time.sleep(1)
-
-        # 4. Click Login (Exact ID)
-        print("Clicking Login...")
         wait.until(EC.element_to_be_clickable((By.ID, "loginForm-login"))).click()
 
-        # 5. Handle Role Selection (If it appears)
+        # 4. Role Selection
         print("Checking for Role Selection...")
         try:
             org_admin_radio = WebDriverWait(driver, 5).until(
@@ -102,125 +94,103 @@ def main():
             print("No Role Selection needed. Continuing...")
 
         # ==========================================
-        # PART 2: NAVIGATE TO ASSESSMENTS
+        # PART 2: ASSESSMENTS LOOP
         # ==========================================
         print("\n--- PART 2: ASSESSMENTS ---")
         
-        # Ensure we are on the dashboard, then click the Assessments Tab Image
-        # Using the ID you provided: ctl00_ctl00_btnAssessments_imgImage
         print("Clicking 'Assessments' tab...")
         try:
             assessments_tab = wait.until(EC.element_to_be_clickable((By.ID, "ctl00_ctl00_btnAssessments_imgImage")))
             assessments_tab.click()
         except:
-            # Fallback if ID changes: try link text
             driver.find_element(By.PARTIAL_LINK_TEXT, "Assessments").click()
 
-        # Wait for the grid to load
         wait.until(EC.presence_of_element_located((By.ID, "ctl00_ctl00_cphMainContent_cphLeftPane_ucAssessments_viewAll_grdAssessments")))
         print("Assessment grid loaded.")
 
-        # ==========================================
-        # PART 3: THE HARVEST LOOP (Checkboxes)
-        # ==========================================
-        
         current_page = 1
         
         while current_page <= MAX_PAGES_TO_SCAN:
             print(f"\nProcessing PAGE {current_page}...")
-            time.sleep(2) # Allow table to settle
+            # Wait for grid to stabilize
+            time.sleep(3) 
 
-            # 1. Find all rows in the main table
-            # We look for TRs that contain a checkbox inside them
+            # --- TICK CHECKBOXES ---
             rows = driver.find_elements(By.XPATH, "//tr[.//input[contains(@id, 'SelectCheckBox')]]")
-            
             checked_count = 0
+            
             for row in rows:
                 try:
-                    text = row.text.upper() # Convert to UPPERCASE for easier matching
+                    text = row.text.upper()
                     
-                    # --- THE FILTERING LOGIC ---
-                    # Rule: Must have ("READ" OR "MATH") AND "(CYCLE"
-                    # This excludes "Numeracy Session", "Session 8", etc.
-                    is_valid_type = "READ" in text or "MATH" in text
-                    is_cycle = "(CYCLE" in text
-                    
-                    if is_valid_type and is_cycle:
-                        # Find the checkbox inside THIS row
+                    # FILTER: Match "READ" or "MATH" AND "(CYCLE"
+                    if ("READ" in text or "MATH" in text) and "(CYCLE" in text:
                         checkbox = row.find_element(By.XPATH, ".//input[contains(@id, 'SelectCheckBox')]")
-                        
                         if not checkbox.is_selected():
                             checkbox.click()
                             checked_count += 1
-                            # Human delay between ticks
-                            time.sleep(random.uniform(0.2, 0.5))
-                        else:
-                            # Already checked
-                            pass
+                            time.sleep(random.uniform(0.1, 0.3))
                 except Exception:
-                    continue # Skip row if stale/error
+                    continue
 
             print(f"  -> Ticked {checked_count} items on Page {current_page}.")
 
-            # 2. Pagination Logic
-            # We look for the link that leads to the NEXT page number.
-            # E.g. If we are on page 1, we look for a link with text "2".
-            next_page_num = current_page + 1
-            
-            # Scroll down gently to see pagination and buttons
-            gentle_scroll_down(driver)
-            
+            # --- PAGINATION LOGIC (The Fix) ---
             if current_page >= MAX_PAGES_TO_SCAN:
-                print("Max pages reached. Stopping selection.")
                 break
 
+            next_page_num = current_page + 1
+            print(f"Looking for button: '{next_page_num}'...")
+
             try:
-                # Look for a pagination link containing the number 'next_page_num'
-                # These are usually inside the footer: <a><span>2</span></a>
-                next_page_link = driver.find_element(By.XPATH, f"//tr[@class='PagerStyle']//a[contains(text(), '{next_page_num}')] | //tr[@class='PagerStyle']//a[./span[contains(text(), '{next_page_num}')]]")
+                # EXACT MATCH: Look for an 'a' tag that contains a 'span' with the number '2', '3', etc.
+                # XPath: //a[.//span[text()='2']]
+                xpath_query = f"//a[.//span[text()='{next_page_num}']]"
                 
-                print(f"Moving to Page {next_page_num}...")
-                next_page_link.click()
+                next_page_link = driver.find_element(By.XPATH, xpath_query)
                 
-                # IMPORTANT: Wait for the old rows to disappear (stale) or wait for new page load
-                # A simple sleep is often safer on these old ASP.NET sites than complex waits
-                time.sleep(4) 
+                # Scroll to it just in case
+                gentle_scroll_to_element(driver, next_page_link)
+                
+                print(f"Clicking Page {next_page_num}...")
+                
+                # FORCE CLICK: Standard .click() fails on these ASP.NET links sometimes
+                driver.execute_script("arguments[0].click();", next_page_link)
+                
+                # Wait for reload (Legacy sites are slow)
+                print("Waiting for page reload...")
+                time.sleep(5) 
                 
                 current_page += 1
-            except Exception:
-                print("No more pages found (or link not clickable). Finished selection.")
+                
+            except Exception as e:
+                print(f"Could not find Page {next_page_num}. Assuming end of list.")
+                # Optional: Try looking for a "Next >" arrow just in case
                 break
 
         # ==========================================
-        # PART 4: EXTRACT & DOWNLOAD
+        # PART 3: EXTRACT
         # ==========================================
         print("\n--- PART 3: EXTRACT ---")
         
-        # 1. Scroll to bottom right to find 'Get Extract'
-        gentle_scroll_down(driver)
+        # Scroll down to make sure the extract button is visible
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(1)
         
         print("Clicking 'Get Extract'...")
-        # ID: ctl00_ctl00_cphMainContent_cphRightPane_DataEngineReports_lnkDemographicsReport_lnkBtn
         extract_btn = wait.until(EC.element_to_be_clickable((By.ID, "ctl00_ctl00_cphMainContent_cphRightPane_DataEngineReports_lnkDemographicsReport_lnkBtn")))
         extract_btn.click()
 
-        print("Waiting for report generation (this may take a moment)...")
-        
-        # 2. Wait for the "Click here to download" link
-        # ID: ctl00_ctl00_cphMainContent_cphLeftPane_lnkDownload
+        print("Waiting for download link...")
         try:
             download_link = wait.until(EC.element_to_be_clickable((By.ID, "ctl00_ctl00_cphMainContent_cphLeftPane_lnkDownload")))
-            
             print("Download link appeared!")
             time.sleep(1)
             download_link.click()
             print("SUCCESS: Download started.")
-            
-            # Keep browser open long enough for download to finish
             time.sleep(15)
-            
         except Exception as e:
-            print("Timed out waiting for download link. Did the extract fail?")
+            print("Timed out waiting for download link.")
             print(e)
 
     except Exception as e:
