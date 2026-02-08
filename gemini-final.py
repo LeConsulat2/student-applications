@@ -3,7 +3,8 @@ import datetime
 import win32com.client
 
 # ================= CONFIGURATION =================
-SAVE_FOLDER = r"C:\Users\wooin\Documents\student-applications\files"
+#SAVE_FOLDER = r"C:\Users\wpar027\Documents\student-applications\files"
+SAVE_FOLDER = os.path.join(os.environ["USERPROFILE"], "Documents", "student-applications", "files")
 TARGET_SUBJECT = "NSN Report"
 
 START_DATE = datetime.datetime(2025, 9, 1)
