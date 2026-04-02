@@ -2,5 +2,6 @@ env/
 .env
 files/
 
-
+*.xlsx
 mapi2.py
+not-using-for-now/*
