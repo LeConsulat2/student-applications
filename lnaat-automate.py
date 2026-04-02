@@ -16,7 +16,7 @@ USERNAME = os.getenv("LNA_USERNAME")
 PASSWORD = os.getenv("LNA_PASSWORD")
 
 # 스캔할 페이지 수 (필요에 따라 조절)
-MAX_PAGES_TO_SCAN = 11 
+MAX_PAGES_TO_SCAN = 13 
 
 if not USERNAME or not PASSWORD:
     print("Error: .env 파일에서 아이디/비번을 찾을 수 없습니다.")

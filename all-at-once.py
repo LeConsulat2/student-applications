@@ -15,7 +15,7 @@ MASTER_FILENAME = "Active Application Details.xlsx"
 # Search Settings
 TARGET_SUBJECT = "NSN Report"
 START_DATE = datetime.datetime(2025, 9, 1)
-END_DATE = datetime.datetime(2026, 2, 9, 23, 59, 59)
+END_DATE = datetime.datetime(2026, 3, 29, 23, 59, 59)
 
 warnings.filterwarnings("ignore")
 # =================================================
